@@ -128,9 +128,37 @@
                     </button>
                 </div>
 
+                <div class="forgot-area" id="forgot-area">
+                    <button class="link-btn" id="forgot-pin-btn">
+                        Forgot PIN?
+                    </button>
+                    <div class="forgot-status" id="forgot-status"></div>
+                </div>
+
                 <button class="cancel-btn" id="modal-close">Cancel</button>
             </div>
             <!-- #pin-view -->
+
+            <!-- ── Forgot PIN view ── -->
+            <div class="view hidden" id="reset-view">
+                <div class="pin-view-header">
+                    <div class="modal-title">Forgot your PIN?</div>
+                    <div class="modal-desc">
+                        Start a 1-hour reset. Your blocks stay on until it
+                        ends, then you can set a new PIN.
+                    </div>
+                </div>
+
+                <p class="reset-note">
+                    Entering your PIN or cancelling the reset stops it.
+                </p>
+
+                <button class="primary-btn" id="reset-start">
+                    Start 1-hour reset
+                </button>
+                <button class="cancel-btn" id="reset-back">Back</button>
+            </div>
+            <!-- #reset-view -->
         </div>
         <!-- .app -->
 

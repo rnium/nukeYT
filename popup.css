@@ -336,6 +336,73 @@ body {
     color: #a1a1aa;
 }
 
+/* ── Forgot PIN ── */
+.forgot-area {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 11.5px;
+    line-height: 1.4;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    color: #71717a;
+    text-decoration: underline;
+    text-decoration-color: #3f3f46;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.link-btn:hover {
+    color: #a1a1aa;
+}
+
+.forgot-status {
+    color: #71717a;
+}
+
+.reset-note {
+    font-size: 11.5px;
+    color: #52525b;
+    text-align: center;
+    margin-top: 12px;
+    padding: 0 16px;
+    line-height: 1.5;
+}
+
+/* ── Primary button ── */
+.primary-btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 20px 16px 0;
+    height: 34px;
+    background: #fafafa;
+    border: 1px solid #fafafa;
+    border-radius: 6px;
+    color: #09090b;
+    font-size: 12.5px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s;
+}
+
+.primary-btn:hover {
+    background: #e4e4e7;
+    border-color: #e4e4e7;
+}
+
+.primary-btn:active {
+    background: #d4d4d8;
+}
+
 /* ── Cancel button ── */
 .cancel-btn {
     display: block;

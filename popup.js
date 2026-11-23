@@ -12,6 +12,15 @@ const MODE = {
   CONFIRM_NEW_PIN: "confirm-new-pin",
 };
 
+const VERIFY_MODES = new Set([
+  MODE.VERIFY_DISABLE_SHORTS,
+  MODE.VERIFY_DISABLE_RECS,
+  MODE.VERIFY_DISABLE_YT,
+  MODE.VERIFY_CHANGE_PIN,
+]);
+
+const RESET_DELAY_MS = 60 * 60 * 1000;
+
 /* ─────────────────────────────────────────────
    Runtime state
 ───────────────────────────────────────────── */
@@ -20,6 +29,7 @@ const state = {
   shortsBlocked: true,
   recsBlocked: true,
   pinHash: null, // SHA-256 hex string, or null if no PIN set
+  pinResetAt: null, // epoch ms when a forgot-PIN reset clears the PIN, or null
 };
 
 let modalMode = null; // current MODE value
@@ -46,12 +56,13 @@ async function sha256(text) {
 function loadState() {
   return new Promise((resolve) =>
     chrome.storage.local.get(
-      ["ytBlocked", "shortsBlocked", "recsBlocked", "pinHash"],
+      ["ytBlocked", "shortsBlocked", "recsBlocked", "pinHash", "pinResetAt"],
       (res) => {
         state.ytBlocked = res.ytBlocked === true; // default false
         state.shortsBlocked = res.shortsBlocked !== false; // default true
         state.recsBlocked = res.recsBlocked !== false; // default true
         state.pinHash = res.pinHash ?? null;
+        state.pinResetAt = res.pinResetAt ?? null;
         resolve();
       },
     ),
@@ -64,7 +75,45 @@ function persist() {
     shortsBlocked: state.shortsBlocked,
     recsBlocked: state.recsBlocked,
     pinHash: state.pinHash,
+    pinResetAt: state.pinResetAt,
   });
+}
+
+/* ─────────────────────────────────────────────
+   PIN checks & forgot-PIN reset
+───────────────────────────────────────────── */
+async function checkPin(entered) {
+  if ((await sha256(entered)) !== state.pinHash) return false;
+  if (state.pinResetAt) {
+    state.pinResetAt = null;
+    persist();
+  }
+  return true;
+}
+
+function startPinReset() {
+  state.pinResetAt = Date.now() + RESET_DELAY_MS;
+  persist();
+}
+
+function cancelPinReset() {
+  state.pinResetAt = null;
+  persist();
+}
+
+function applyDueReset() {
+  if (!state.pinResetAt || Date.now() < state.pinResetAt) return false;
+  state.pinHash = null;
+  state.pinResetAt = null;
+  persist();
+  return true;
+}
+
+function formatRemaining(ms) {
+  const mins = Math.max(1, Math.ceil(ms / 60000));
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h ? `${h}h ${m}m` : `${m}m`;
 }
 
 /* ─────────────────────────────────────────────
@@ -77,21 +126,42 @@ function renderMain() {
   document.getElementById("recs-toggle").checked = state.recsBlocked;
 
   // PIN section
-  const hasPIN = Boolean(state.pinHash);
-  document.getElementById("pin-status-label").textContent = hasPIN
-    ? "PIN protected"
-    : "No PIN set";
-  document.getElementById("pin-status-desc").textContent = hasPIN
-    ? "PIN required to disable"
-    : "Set a PIN to lock your settings";
-  document.getElementById("pin-action-btn").textContent = hasPIN
-    ? "Change PIN"
-    : "Set PIN";
+  let label = "No PIN set";
+  let desc = "Set a PIN to lock your settings";
+  let action = "Set PIN";
+  let forgotStatus = "";
+
+  if (state.pinResetAt) {
+    const remaining = formatRemaining(state.pinResetAt - Date.now());
+    label = "PIN reset pending";
+    desc = `PIN clears in ${remaining}`;
+    action = "Cancel reset";
+    forgotStatus = `Reset pending · clears in ${remaining}`;
+  } else if (state.pinHash) {
+    label = "PIN protected";
+    desc = "PIN required to disable";
+    action = "Change PIN";
+  }
+
+  document.getElementById("pin-status-label").textContent = label;
+  document.getElementById("pin-status-desc").textContent = desc;
+  document.getElementById("pin-action-btn").textContent = action;
+
+  document.getElementById("forgot-pin-btn").hidden = Boolean(state.pinResetAt);
+  document.getElementById("forgot-status").textContent = forgotStatus;
 }
 
 /* ─────────────────────────────────────────────
    Modal helpers
 ───────────────────────────────────────────── */
+function showView(name /* 'main' | 'pin' | 'reset' */) {
+  for (const view of ["main", "pin", "reset"]) {
+    document
+      .getElementById(`${view}-view`)
+      .classList.toggle("hidden", view !== name);
+  }
+}
+
 function openModal(mode, title, desc) {
   modalMode = mode;
   pinBuffer = "";
@@ -100,13 +170,12 @@ function openModal(mode, title, desc) {
 
   document.getElementById("modal-title").textContent = title;
   document.getElementById("modal-desc").textContent = desc;
-  document.getElementById("main-view").classList.add("hidden");
-  document.getElementById("pin-view").classList.remove("hidden");
+  document.getElementById("forgot-area").hidden = !VERIFY_MODES.has(mode);
+  showView("pin");
 }
 
 function closeModal() {
-  document.getElementById("pin-view").classList.add("hidden");
-  document.getElementById("main-view").classList.remove("hidden");
+  showView("main");
   modalMode = null;
   pinBuffer = "";
   newPinBuffer = "";
@@ -192,8 +261,7 @@ async function handleComplete() {
 
   /* ── Verify to disable Shorts ── */
   if (mode === MODE.VERIFY_DISABLE_SHORTS) {
-    const hash = await sha256(entered);
-    if (hash === state.pinHash) {
+    if (await checkPin(entered)) {
       state.shortsBlocked = false;
       persist();
       renderMain();
@@ -206,8 +274,7 @@ async function handleComplete() {
 
   /* ── Verify to disable Recommendations ── */
   if (mode === MODE.VERIFY_DISABLE_RECS) {
-    const hash = await sha256(entered);
-    if (hash === state.pinHash) {
+    if (await checkPin(entered)) {
       state.recsBlocked = false;
       persist();
       renderMain();
@@ -220,8 +287,7 @@ async function handleComplete() {
 
   /* ── Verify to disable YouTube nuke ── */
   if (mode === MODE.VERIFY_DISABLE_YT) {
-    const hash = await sha256(entered);
-    if (hash === state.pinHash) {
+    if (await checkPin(entered)) {
       state.ytBlocked = false;
       persist();
       renderMain();
@@ -234,8 +300,7 @@ async function handleComplete() {
 
   /* ── Verify current PIN before changing ── */
   if (mode === MODE.VERIFY_CHANGE_PIN) {
-    const hash = await sha256(entered);
-    if (hash === state.pinHash) {
+    if (await checkPin(entered)) {
       openModal(MODE.SET_NEW_PIN, "Set New PIN", "Enter your new 6-digit PIN");
     } else {
       flashDots("Incorrect PIN. Try again.");
@@ -320,7 +385,14 @@ function handleTurnOff(feature /* 'yt' | 'shorts' | 'recs' */) {
 ───────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", async () => {
   await loadState();
+  applyDueReset();
   renderMain();
+
+  setInterval(() => {
+    if (!state.pinResetAt) return;
+    if (applyDueReset()) closeModal();
+    renderMain();
+  }, 30000);
 
   /* ── YouTube toggle ── */
   document.getElementById("yt-toggle").addEventListener("change", (e) => {
@@ -358,9 +430,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  /* ── PIN action button (Set PIN / Change PIN) ── */
+  /* ── PIN action button (Set PIN / Change PIN / Cancel reset) ── */
   document.getElementById("pin-action-btn").addEventListener("click", () => {
-    if (state.pinHash) {
+    if (state.pinResetAt) {
+      cancelPinReset();
+      renderMain();
+    } else if (state.pinHash) {
       openModal(
         MODE.VERIFY_CHANGE_PIN,
         "Change PIN",
@@ -382,6 +457,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderMain();
   });
 
+  /* ── Forgot PIN flow ── */
+  document.getElementById("forgot-pin-btn").addEventListener("click", () => {
+    showView("reset");
+  });
+
+  document.getElementById("reset-back").addEventListener("click", () => {
+    showView("pin");
+  });
+
+  document.getElementById("reset-start").addEventListener("click", () => {
+    startPinReset();
+    closeModal();
+    renderMain();
+  });
+
   /* ── Numpad digit buttons ── */
   document.querySelectorAll(".num-btn[data-digit]").forEach((btn) => {
     btn.addEventListener("click", () => pressDigit(btn.dataset.digit));
@@ -394,6 +484,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   /* ── Keyboard support ── */
   document.addEventListener("keydown", (e) => {
+    if (!document.getElementById("reset-view").classList.contains("hidden")) {
+      if (e.key === "Escape") showView("pin");
+      return;
+    }
     if (document.getElementById("pin-view").classList.contains("hidden"))
       return;
 

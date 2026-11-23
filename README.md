@@ -10,6 +10,7 @@ A Chrome/Brave extension that can block YouTube Shorts, watch-page recommendatio
 - **Popup UI** — click the extension icon to toggle each feature on or off
 - **PIN protection** — turning a feature *off* requires a 6-digit PIN; turning it back *on* is always free
 - **Change PIN** — update your PIN at any time from the popup (requires the current PIN first)
+- **Forgot PIN** — start a 1-hour reset from the PIN screen; your blocks stay on until the PIN is cleared
 - **Live updates** — changes in the popup take effect on any open YouTube tab instantly, no refresh needed
 
 ## Install (Developer Mode)
@@ -40,6 +41,7 @@ Turning a toggle **off** for the first time will prompt you to create a 6-digit 
 - **Turning off** any feature → enter your PIN on the numpad
 - **Turning on** any feature → no PIN needed
 - **Changing your PIN** → click *Change PIN*, verify your current PIN, then enter and confirm the new one
+- **Forgot your PIN** → click *Forgot PIN?* on the PIN screen and start the 1-hour reset. Your blocks stay on while it runs; when it ends the PIN is removed and you can set a new one. Entering the correct PIN or clicking *Cancel reset* stops it.
 
 The PIN is never stored in plain text — it is hashed with **SHA-256** (Web Crypto API) before being saved to `chrome.storage.local`.
 
@@ -61,7 +63,7 @@ nukeshorts/
 - **Nuke YouTube overlay** — when enabled, a full-page overlay replaces all YouTube content with a clean "YouTube is Nuked" message.
 - **SPA navigation** — a `MutationObserver` watches for DOM changes and re-enforces rules after YouTube's client-side navigation.
 - **Periodic sweep** — a `setInterval` runs every 1.5 s as a safety net for lazily-loaded content.
-- **Storage** — settings (`ytBlocked`, `shortsBlocked`, `recsBlocked`, `pinHash`) are persisted in `chrome.storage.local`. The content script listens via `chrome.storage.onChanged` for instant cross-tab updates.
+- **Storage** — settings (`ytBlocked`, `shortsBlocked`, `recsBlocked`, `pinHash`, `pinResetAt`) are persisted in `chrome.storage.local`. The content script listens via `chrome.storage.onChanged` for instant cross-tab updates.
 - **Permissions used** — `storage`, `host_permissions: https://www.youtube.com/*`
 
 ## Caveats
