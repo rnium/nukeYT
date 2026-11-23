@@ -4,8 +4,12 @@
   /* ─────────────────────────────────────────────
      Blocking CSS strings
   ───────────────────────────────────────────── */
+  // Hide, never remove: deleting nodes YouTube rendered desyncs its feed and stacks loading spinners.
   const SHORTS_CSS = `
     a[href^="/shorts"],
+    grid-shelf-view-model:has(a[href^="/shorts/"]),
+    ytm-shorts-lockup-view-model-v2,
+    ytm-shorts-lockup-view-model,
     ytd-guide-entry-renderer:has(a[href="/shorts"]),
     ytd-guide-entry-renderer:has(a[href^="/shorts"]),
     ytd-mini-guide-entry-renderer:has(a[href="/shorts"]),
@@ -187,40 +191,6 @@
   ───────────────────────────────────────────── */
   const SHORTS_PATH = "/shorts/";
 
-  function removeShortsNodes(root = document) {
-    if (!settings.shortsBlocked) return;
-
-    const links = root.querySelectorAll('a[href^="/shorts/"]');
-    for (const link of links) {
-      const container =
-        link.closest(
-          "ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, " +
-            "ytd-compact-video-renderer, ytd-rich-shelf-renderer, " +
-            "ytd-reel-shelf-renderer, ytd-item-section-renderer",
-        ) || link;
-      if (container instanceof HTMLElement) container.remove();
-    }
-
-    const shelves = root.querySelectorAll(
-      "ytd-reel-shelf-renderer, ytd-rich-shelf-renderer[is-shorts]",
-    );
-    for (const shelf of shelves) {
-      if (shelf instanceof HTMLElement) shelf.remove();
-    }
-  }
-
-  function setRecsVisibility() {
-    const targets = [
-      document.querySelector("ytd-watch-next-secondary-results-renderer"),
-      document.querySelector("#related"),
-    ];
-    for (const el of targets) {
-      if (el instanceof HTMLElement) {
-        el.style.display = settings.recsBlocked ? "none" : "";
-      }
-    }
-  }
-
   function redirectIfShorts() {
     if (settings.shortsBlocked && location.pathname.startsWith(SHORTS_PATH)) {
       location.replace("https://www.youtube.com/");
@@ -231,8 +201,6 @@
     enforceNuke();
     if (settings.ytBlocked) return; // skip granular enforcement when fully nuked
     redirectIfShorts();
-    removeShortsNodes(document);
-    setRecsVisibility();
   }
 
   /* ─────────────────────────────────────────────
@@ -280,7 +248,7 @@
   ───────────────────────────────────────────── */
   let lastHref = location.href;
 
-  const observer = new MutationObserver((mutations) => {
+  const observer = new MutationObserver(() => {
     if (location.href !== lastHref) {
       lastHref = location.href;
       enforce();
@@ -288,19 +256,7 @@
     }
 
     // Re-enforce nuke overlay in case YouTube tries to manipulate the DOM
-    if (settings.ytBlocked) {
-      enforceNuke();
-      return;
-    }
-
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node instanceof HTMLElement) {
-          removeShortsNodes(node);
-          setRecsVisibility();
-        }
-      }
-    }
+    if (settings.ytBlocked) enforceNuke();
   });
 
   observer.observe(document.documentElement, {
