@@ -53,6 +53,9 @@
   `;
 
   const YT_NUKE_CSS = `
+    html {
+      overflow: hidden !important;
+    }
     body > *:not(#nukeyt-overlay) {
       display: none !important;
     }
@@ -71,30 +74,28 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
-      padding: 48px 40px;
-      border: 1px solid #27272a;
-      border-radius: 12px;
-      background: #09090b;
+      padding: 0 24px;
       text-align: center;
-      max-width: 420px;
-      width: 90%;
     }
     #nukeyt-overlay .nukeyt-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: #18181b;
-      border: 1px solid #27272a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      line-height: 1;
+      width: 40px;
+      height: 40px;
+      margin-bottom: 20px;
       color: #fafafa;
+      animation: nukeyt-spin 20s linear infinite;
+    }
+    @keyframes nukeyt-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #nukeyt-overlay .nukeyt-icon {
+        animation: none;
+      }
     }
     #nukeyt-overlay .nukeyt-title {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 600;
       color: #fafafa;
       letter-spacing: -0.01em;
@@ -104,24 +105,9 @@
     #nukeyt-overlay .nukeyt-desc {
       font-size: 14px;
       color: #71717a;
-      line-height: 1.6;
-      margin: 0;
+      line-height: 1.5;
+      margin: 8px 0 0;
     }
-    #nukeyt-overlay .nukeyt-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 4px;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      background: #18181b;
-      border: 1px solid #27272a;
-      font-size: 12px;
-      font-weight: 500;
-      color: #a1a1aa;
-      letter-spacing: 0.02em;
-    }
-
   `;
 
   /* ─────────────────────────────────────────────
@@ -155,15 +141,14 @@
     overlay.id = "nukeyt-overlay";
     overlay.innerHTML = `
       <div class="nukeyt-card">
-        <div class="nukeyt-icon">&#x2622;</div>
+        <svg class="nukeyt-icon" viewBox="-50 -50 100 100" fill="currentColor" aria-hidden="true">
+          <circle r="9"/>
+          <path d="M6.75 11.69L22.5 38.97A45 45 0 0 1-22.5 38.97L-6.75 11.69A13.5 13.5 0 0 0 6.75 11.69Z
+                   M-13.5 0L-45 0A45 45 0 0 1-22.5-38.97L-6.75-11.69A13.5 13.5 0 0 0-13.5 0Z
+                   M6.75-11.69L22.5-38.97A45 45 0 0 1 45 0L13.5 0A13.5 13.5 0 0 0 6.75-11.69Z"/>
+        </svg>
         <h1 class="nukeyt-title">YouTube is Nuked</h1>
-        <p class="nukeyt-desc">
-          This site has been blocked by NukeYT.<br>
-          Close this tab and do something awesome instead.
-        </p>
-        <div class="nukeyt-badge">
-          Blocked by NukeYT
-        </div>
+        <p class="nukeyt-desc">Close this tab and do something awesome instead.</p>
       </div>
     `;
 
