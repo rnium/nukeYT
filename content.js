@@ -47,8 +47,13 @@
     }
   `;
 
+  // Settings load async and can land after YouTube's first paint; hide until known.
+  const PENDING_CSS = `
+    body { opacity: 0 !important; }
+  `;
+
   const YT_NUKE_CSS = `
-    body.nukeyt-blocked > *:not(#nukeyt-overlay) {
+    body > *:not(#nukeyt-overlay) {
       display: none !important;
     }
     #nukeyt-overlay {
@@ -127,9 +132,10 @@
   document.documentElement.appendChild(styleEl);
 
   const settings = { ytBlocked: false, shortsBlocked: true, recsBlocked: true };
+  let settingsLoaded = false;
 
   function applyCSS() {
-    let css = "";
+    let css = settingsLoaded ? "" : PENDING_CSS;
     if (settings.ytBlocked) css += YT_NUKE_CSS;
     if (settings.shortsBlocked) css += SHORTS_CSS;
     if (settings.recsBlocked) css += RECS_CSS;
@@ -164,23 +170,32 @@
     // Ensure body exists before appending
     const target = document.body || document.documentElement;
     target.appendChild(overlay);
-
-    if (document.body) {
-      document.body.classList.add("nukeyt-blocked");
-    }
   }
 
   function removeNukeOverlay() {
     const overlay = document.getElementById("nukeyt-overlay");
     if (overlay) overlay.remove();
-    if (document.body) {
-      document.body.classList.remove("nukeyt-blocked");
+  }
+
+  function pauseAllMedia() {
+    for (const media of document.querySelectorAll("video, audio")) {
+      if (!media.paused) media.pause();
     }
   }
+
+  // Media events don't bubble; capture is required.
+  document.addEventListener(
+    "play",
+    (e) => {
+      if (settings.ytBlocked && e.target instanceof HTMLMediaElement) e.target.pause();
+    },
+    true,
+  );
 
   function enforceNuke() {
     if (settings.ytBlocked) {
       showNukeOverlay();
+      pauseAllMedia();
     } else {
       removeNukeOverlay();
     }
@@ -212,6 +227,7 @@
       settings.ytBlocked = result.ytBlocked === true; // default off
       settings.shortsBlocked = result.shortsBlocked !== false;
       settings.recsBlocked = result.recsBlocked !== false;
+      settingsLoaded = true;
       applyCSS();
       enforce();
     },
